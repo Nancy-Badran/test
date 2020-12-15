@@ -1,0 +1,38 @@
+language: python
+env:
+  global:
+    - tags = {0:'quarantine '}
+
+# request additional services for the jobs to access
+services:
+  - docker
+  
+# run internal-ssl test with docker-compose
+
+before_install:
+  - docker build -t trivy-ci-test:${COMMIT} .
+  - export VERSION=$(curl --silent "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+  - wget https://github.com/aquasecurity/trivy/releases/download/v${VERSION}/trivy_${VERSION}_Linux-64bit.tar.gz
+  - tar zxvf trivy_${VERSION}_Linux-64bit.tar.gz
+
+script:
+  
+  # scan if tag = quarantine
+  - docker images
+  if [[ "$tags" = "{0:'quarantine '}"]]; then
+    - trivy --exit-code 0 --severity HIGH --no-progress trivy-ci-test:${COMMIT}
+    - trivy --exit-code 1 --severity CRITICAL --no-progress trivy-ci-test:${COMMIT}
+
+cache:
+   directories:
+    - $HOME/.cache/trivy
+
+# change this to run it into a dockerfile 
+jobs:
+  include:
+    - stage: dequarantine
+      script: ./dequarantine.py
+    
+
+  
+ 
